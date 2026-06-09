@@ -1,10 +1,9 @@
 services:
   - type: web
     name: afcc-backend
-    runtime: node
-    rootDir: backend
-    buildCommand: npm install && npx prisma generate && npx prisma db push && node prisma/seed.js
-    startCommand: node src/server.js
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
     envVars:
       - key: NODE_ENV
         value: production
