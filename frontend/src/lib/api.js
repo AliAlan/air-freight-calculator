@@ -1,4 +1,8 @@
-const BASE = '/api'
+// In production, set VITE_API_URL to your Render backend URL (e.g. https://afcc-backend.onrender.com)
+// In development, Vite proxies /api → localhost:4000
+const BASE = import.meta.env.VITE_API_URL
+  ? `${import.meta.env.VITE_API_URL}/api`
+  : '/api'
 
 function getToken() {
   return localStorage.getItem('afcc_token')
