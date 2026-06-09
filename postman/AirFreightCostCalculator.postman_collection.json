@@ -1,0 +1,193 @@
+{
+  "info": {
+    "name": "Air Freight Cost Calculator API",
+    "description": "Demo collection. Run 'Login' first; it auto-saves the JWT into the {{token}} variable used by every other request.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:4000/api"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "shipmentId",
+      "value": "1"
+    }
+  ],
+  "item": [
+    {
+      "name": "Login (admin)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const json = pm.response.json();",
+              "if (json.success) { pm.collectionVariables.set('token', json.data.token); }",
+              "pm.test('logged in', () => pm.expect(json.success).to.be.true);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/auth/login",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"admin@afcc.demo\",\n  \"password\": \"demo1234\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Preview quote (no save)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": "{{baseUrl}}/shipments/preview",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"originCountry\": \"DE\",\n  \"destinationCountry\": \"SA\",\n  \"mode\": \"Express\",\n  \"dangerousGoods\": false,\n  \"declaredValue\": 4200,\n  \"currency\": \"SAR\",\n  \"items\": [\n    {\n      \"quantity\": 1,\n      \"lengthCm\": 60,\n      \"widthCm\": 40,\n      \"heightCm\": 50,\n      \"weightKg\": 18\n    }\n  ]\n}"
+        }
+      }
+    },
+    {
+      "name": "Create shipment",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": "{{baseUrl}}/shipments",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"originCountry\": \"CN\",\n  \"destinationCountry\": \"SA\",\n  \"mode\": \"DangerousGoods\",\n  \"dangerousGoods\": true,\n  \"declaredValue\": 6800,\n  \"currency\": \"SAR\",\n  \"items\": [\n    {\n      \"quantity\": 1,\n      \"lengthCm\": 40,\n      \"widthCm\": 30,\n      \"heightCm\": 30,\n      \"weightKg\": 22\n    }\n  ]\n}"
+        }
+      }
+    },
+    {
+      "name": "List shipments",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": "{{baseUrl}}/shipments"
+      }
+    },
+    {
+      "name": "Get shipment by id",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": "{{baseUrl}}/shipments/{{shipmentId}}"
+      }
+    },
+    {
+      "name": "Approve / reject shipment",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": "{{baseUrl}}/shipments/{{shipmentId}}/decision",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"decision\": \"APPROVED\",\n  \"reason\": \"Reviewed and cleared\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Dashboard metrics",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": "{{baseUrl}}/shipments/dashboard"
+      }
+    },
+    {
+      "name": "Reference - countries",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": "{{baseUrl}}/reference/countries"
+      }
+    },
+    {
+      "name": "Reference - rates",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": "{{baseUrl}}/reference/rates"
+      }
+    },
+    {
+      "name": "Reference - surcharges",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": "{{baseUrl}}/reference/surcharges"
+      }
+    }
+  ]
+}

@@ -1,0 +1,136 @@
+// Prisma schema for the Air Freight Cost Calculator.
+// Uses SQLite by default so the demo runs with zero database setup.
+// To switch to PostgreSQL: change provider to "postgresql" and point
+// DATABASE_URL at your Postgres instance (see docker-compose.yml).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// --- Auth & access control ------------------------------------------------
+model Role {
+  id    Int    @id @default(autoincrement())
+  name  String @unique          // ADMIN | OPERATOR | APPROVER
+  users User[]
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  name      String
+  password  String                       // demo: bcrypt hash
+  roleId    Int
+  role      Role     @relation(fields: [roleId], references: [id])
+  shipments Shipment[]
+  approvals Approval[]
+  createdAt DateTime @default(now())
+}
+
+// --- Geography & tariffs --------------------------------------------------
+model Zone {
+  id        Int       @id @default(autoincrement())
+  code      String    @unique          // Z1..Z6
+  name      String
+  factor    Float                       // rate multiplier
+  countries Country[]
+  rates     Rate[]
+}
+
+model Country {
+  id        Int        @id @default(autoincrement())
+  code      String     @unique          // ISO-2
+  name      String
+  remote    Boolean    @default(false)
+  zoneId    Int
+  zone      Zone       @relation(fields: [zoneId], references: [id])
+  shipmentsFrom Shipment[] @relation("OriginCountry")
+  shipmentsTo   Shipment[] @relation("DestinationCountry")
+}
+
+model Rate {
+  id        Int   @id @default(autoincrement())
+  zoneId    Int
+  zone      Zone  @relation(fields: [zoneId], references: [id])
+  minKg     Float
+  maxKg     Float
+  perKg     Float
+  minCharge Float
+}
+
+model Surcharge {
+  id        Int     @id @default(autoincrement())
+  code      String  @unique
+  name      String
+  type      String                       // PERCENT | FLAT | PER_KG
+  value     Float
+  condition String                       // ALWAYS | DANGEROUS_GOODS | REMOTE_DESTINATION
+  active    Boolean @default(true)
+}
+
+// --- Shipments ------------------------------------------------------------
+model Shipment {
+  id                 Int      @id @default(autoincrement())
+  ref                String   @unique
+  originCountryId    Int
+  originCountry      Country  @relation("OriginCountry", fields: [originCountryId], references: [id])
+  destinationCountryId Int
+  destinationCountry Country  @relation("DestinationCountry", fields: [destinationCountryId], references: [id])
+  mode               String                  // EXPRESS | ECONOMY | FREIGHT
+  dangerousGoods     Boolean  @default(false)
+  remoteArea         Boolean  @default(false)
+  currency           String   @default("USD")
+  status             String   @default("DRAFT") // DRAFT|PENDING|APPROVED|REJECTED
+
+  // cached calculation results (so the list/dashboard is fast)
+  actualWeight       Float?
+  volumetricWeight   Float?
+  chargeableWeight   Float?
+  freightSubtotal    Float?
+  surchargeTotal     Float?
+  totalFreight       Float?
+  resultJson         String?              // full quote snapshot (JSON)
+
+  createdById        Int
+  createdBy          User     @relation(fields: [createdById], references: [id])
+  items              ShipmentItem[]
+  approvals          Approval[]
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model ShipmentItem {
+  id         Int      @id @default(autoincrement())
+  shipmentId Int
+  shipment   Shipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  quantity   Int      @default(1)
+  lengthCm   Float
+  widthCm    Float
+  heightCm   Float
+  weightKg   Float
+}
+
+model Approval {
+  id         Int      @id @default(autoincrement())
+  shipmentId Int
+  shipment   Shipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  decision   String                          // PENDING | APPROVED | REJECTED
+  reason     String?
+  decidedById Int?
+  decidedBy  User?    @relation(fields: [decidedById], references: [id])
+  createdAt  DateTime @default(now())
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  actor     String
+  action    String
+  entity    String
+  entityId  String?
+  meta      String?
+  createdAt DateTime @default(now())
+}
