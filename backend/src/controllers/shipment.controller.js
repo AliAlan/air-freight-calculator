@@ -19,7 +19,11 @@ const decide = asyncHandler(async (req, res) => {
   const data = await svc.decideApproval(Number(req.params.id), decision, reason, req.user.id);
   res.json({ success: true, data });
 });
+const remove = asyncHandler(async (req, res) => {
+  const data = await svc.deleteShipment(Number(req.params.id));
+  res.json({ success: true, data });
+});
 const dashboard = asyncHandler(async (req, res) => {
   res.json({ success: true, data: await svc.dashboard() });
 });
-module.exports = { preview, create, list, getOne, decide, dashboard };
+module.exports = { preview, create, list, getOne, remove, decide, dashboard };

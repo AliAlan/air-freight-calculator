@@ -16,6 +16,7 @@ module.exports = {
   findAll: (where = {}) =>
     prisma.shipment.findMany({ where, include, orderBy: { createdAt: 'desc' } }),
   update: (id, data) => prisma.shipment.update({ where: { id }, data, include }),
+  remove: (id) => prisma.shipment.delete({ where: { id } }),
   addApproval: (data) => prisma.approval.create({ data }),
   countByStatus: (status) => prisma.shipment.count({ where: { status } }),
 };

@@ -11,6 +11,8 @@ router.post('/preview', validate(quoteSchema), ctrl.preview);   // calculate, no
 router.post('/', validate(createShipmentSchema), ctrl.create);
 router.get('/', ctrl.list);
 router.get('/:id', ctrl.getOne);
+// Any authenticated role may remove a shipment (also deletes its items + approvals).
+router.delete('/:id', authorize('OPERATOR', 'ADMIN', 'APPROVER'), ctrl.remove);
 // Only APPROVER/ADMIN may action the approval queue.
 router.post('/:id/decision', authorize('APPROVER', 'ADMIN'),
   validate(approvalSchema), ctrl.decide);

@@ -60,6 +60,13 @@ async function getById(id) {
   return s;
 }
 
+async function deleteShipment(id) {
+  const s = await repo.findById(id);
+  if (!s) throw new ApiError(404, 'Shipment not found.');
+  await repo.remove(id);
+  return { id, ref: s.ref };
+}
+
 async function decideApproval(id, decision, reason, approverId) {
   const s = await repo.findById(id);
   if (!s) throw new ApiError(404, 'Shipment not found.');
@@ -93,4 +100,4 @@ async function dashboard() {
   };
 }
 
-module.exports = { preview, createShipment, list, getById, decideApproval, dashboard };
+module.exports = { preview, createShipment, list, getById, deleteShipment, decideApproval, dashboard };

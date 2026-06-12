@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { api } from '../lib/api'
+import { exportShipmentsToExcel } from '../lib/exportExcel'
 import StatusBadge from '../components/StatusBadge'
-import { Package, Search, Filter, PlusCircle, ArrowRight, ChevronDown } from 'lucide-react'
+import { Package, Search, Filter, PlusCircle, ArrowRight, ChevronDown, Trash2, Download } from 'lucide-react'
 
 const STATUSES = ['', 'DRAFT', 'PENDING', 'APPROVED', 'REJECTED']
 
@@ -16,20 +17,47 @@ export default function Shipments() {
   const [shipments, setShipments] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [deletingId, setDeletingId] = useState(null)
+  const [error, setError] = useState('')
 
   const status = searchParams.get('status') || ''
 
-  useEffect(() => {
+  function load() {
     setLoading(true)
     const params = {}
     if (status) params.status = status
-    api.listShipments(params)
+    return api.listShipments(params)
       .then(res => {
         const list = res.data?.shipments ?? res.data ?? []
         setShipments(Array.isArray(list) ? list : [])
       })
       .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status])
+
+  async function handleDelete(s, e) {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!window.confirm(`Delete shipment ${s.ref}? This permanently removes it from the database.`)) return
+    setError('')
+    setDeletingId(s.id)
+    try {
+      await api.deleteShipment(s.id)
+      setShipments(prev => prev.filter(x => x.id !== s.id))
+    } catch (err) {
+      setError(err.message || 'Failed to delete shipment.')
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
+  function handleExport() {
+    exportShipmentsToExcel(filtered)
+  }
 
   const filtered = shipments.filter(s => {
     if (!search) return true
@@ -54,11 +82,28 @@ export default function Shipments() {
           <h1 className="text-2xl font-bold text-gray-900">Shipments</h1>
           <p className="text-gray-500 text-sm mt-1">{shipments.length} total records</p>
         </div>
-        <Link to="/shipments/new" className="btn-primary">
-          <PlusCircle className="w-4 h-4" />
-          New Shipment
-        </Link>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleExport}
+            disabled={filtered.length === 0}
+            className="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Download all listed shipments as an Excel file"
+          >
+            <Download className="w-4 h-4" />
+            Download Excel
+          </button>
+          <Link to="/shipments/new" className="btn-primary">
+            <PlusCircle className="w-4 h-4" />
+            New Shipment
+          </Link>
+        </div>
       </div>
+
+      {error && (
+        <div className="mb-4 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-4 py-2">
+          {error}
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex items-center gap-3 mb-6">
@@ -153,9 +198,21 @@ export default function Shipments() {
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <Link to={`/shipments/${s.id}`} className="text-gray-400 hover:text-blue-600 transition-colors">
-                        <ArrowRight className="w-4 h-4" />
-                      </Link>
+                      <div className="flex items-center justify-end gap-3">
+                        <button
+                          onClick={(e) => handleDelete(s, e)}
+                          disabled={deletingId === s.id}
+                          className="text-gray-400 hover:text-red-600 transition-colors disabled:opacity-40"
+                          title="Delete shipment"
+                        >
+                          {deletingId === s.id
+                            ? <div className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
+                            : <Trash2 className="w-4 h-4" />}
+                        </button>
+                        <Link to={`/shipments/${s.id}`} className="text-gray-400 hover:text-blue-600 transition-colors" title="View details">
+                          <ArrowRight className="w-4 h-4" />
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 )
