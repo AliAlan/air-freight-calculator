@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { api } from '../lib/api'
 import { Plane, AlertCircle } from 'lucide-react'
 
 const QUICK_LOGINS = [
@@ -16,6 +17,17 @@ export default function Login() {
   const [password, setPassword] = useState('demo1234')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [warming, setWarming] = useState(true)
+
+  // Pre-warm the backend the moment the login page loads, so a cold
+  // (spun-down) server is already awake by the time credentials are submitted.
+  useEffect(() => {
+    let cancelled = false
+    api.health()
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setWarming(false) })
+    return () => { cancelled = true }
+  }, [])
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -93,6 +105,12 @@ export default function Login() {
             <button type="submit" className="btn-primary w-full justify-center py-2.5 mt-2" disabled={loading}>
               {loading ? 'Signing in…' : 'Sign in'}
             </button>
+            {warming && (
+              <p className="flex items-center justify-center gap-2 text-xs text-gray-400 mt-1">
+                <span className="w-3 h-3 border-2 border-gray-300 border-t-transparent rounded-full animate-spin" />
+                Waking up the server…
+              </p>
+            )}
           </form>
 
           {/* Quick logins */}

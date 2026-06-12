@@ -2,18 +2,38 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../lib/api'
 import StatusBadge from '../components/StatusBadge'
-import { Package, Clock, CheckCircle, XCircle, DollarSign, TrendingUp, ArrowRight, PlusCircle } from 'lucide-react'
+import {
+  Package, Clock, CheckCircle, DollarSign, TrendingUp, ArrowRight,
+  PlusCircle, Route, Trophy, BarChart3,
+} from 'lucide-react'
+import {
+  ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend,
+  LineChart, Line, XAxis, YAxis, CartesianGrid, BarChart, Bar,
+} from 'recharts'
+
+function fmt(n) {
+  if (n == null) return '—'
+  return new Intl.NumberFormat('en-SA', { style: 'currency', currency: 'SAR', maximumFractionDigits: 0 }).format(n)
+}
+
+const STATUS_COLORS = {
+  DRAFT: '#9ca3af',     // gray
+  PENDING: '#f59e0b',   // amber
+  APPROVED: '#10b981',  // green
+  REJECTED: '#ef4444',  // red
+}
+const MODE_COLORS = ['#3b82f6', '#10b981', '#f97316', '#8b5cf6', '#ec4899']
 
 function StatCard({ icon: Icon, label, value, sub, color }) {
   return (
     <div className="card p-5">
       <div className="flex items-start justify-between">
-        <div>
+        <div className="min-w-0">
           <p className="text-sm text-gray-500">{label}</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
-          {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
+          <p className="text-2xl font-bold text-gray-900 mt-1 truncate">{value}</p>
+          {sub && <p className="text-xs text-gray-400 mt-0.5 truncate">{sub}</p>}
         </div>
-        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${color}`}>
+        <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${color}`}>
           <Icon className="w-5 h-5" />
         </div>
       </div>
@@ -21,9 +41,22 @@ function StatCard({ icon: Icon, label, value, sub, color }) {
   )
 }
 
-function fmt(n) {
-  if (n == null) return '—'
-  return new Intl.NumberFormat('en-SA', { style: 'currency', currency: 'SAR', maximumFractionDigits: 0 }).format(n)
+function ChartCard({ title, icon: Icon, children, empty }) {
+  return (
+    <div className="card p-6">
+      <div className="flex items-center gap-2 mb-4">
+        {Icon && <Icon className="w-4 h-4 text-gray-400" />}
+        <h2 className="font-semibold text-gray-900 text-sm">{title}</h2>
+      </div>
+      {empty ? (
+        <div className="h-64 flex items-center justify-center text-sm text-gray-400">
+          No data yet
+        </div>
+      ) : (
+        <div className="h-64">{children}</div>
+      )}
+    </div>
+  )
 }
 
 export default function Dashboard() {
@@ -47,6 +80,12 @@ export default function Dashboard() {
     </div>
   )
 
+  const statusData = (stats?.statusCounts ?? []).filter(d => d.count > 0)
+  const modeData = stats?.freightByMode ?? []
+  const trendData = stats?.freightTrend ?? []
+  const routeData = stats?.topRoutes ?? []
+  const hasAny = (stats?.shipmentCount ?? 0) > 0
+
   return (
     <div className="p-8 max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-8">
@@ -60,8 +99,8 @@ export default function Dashboard() {
         </Link>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      {/* KPI cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
         <StatCard
           icon={Package}
           label="Total Shipments"
@@ -76,18 +115,116 @@ export default function Dashboard() {
           color="bg-yellow-50 text-yellow-600"
         />
         <StatCard
-          icon={CheckCircle}
-          label="Approved"
-          value={stats?.approved ?? '—'}
-          color="bg-green-50 text-green-600"
-        />
-        <StatCard
           icon={DollarSign}
           label="Total Freight"
           value={fmt(stats?.totalFreight)}
-          sub="SAR, all shipments"
+          sub={`Avg ${fmt(stats?.avgFreight)} / shipment`}
           color="bg-purple-50 text-purple-600"
         />
+        <StatCard
+          icon={CheckCircle}
+          label="Approved"
+          value={stats?.approved ?? '—'}
+          sub={`${stats?.rejected ?? 0} rejected`}
+          color="bg-green-50 text-green-600"
+        />
+      </div>
+
+      {/* Highlight KPI cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+        <StatCard
+          icon={Route}
+          label="Most Used Route"
+          value={stats?.mostUsedRoute?.route ?? '—'}
+          sub={stats?.mostUsedRoute ? `${stats.mostUsedRoute.count} shipments · ${fmt(stats.mostUsedRoute.freight)}` : ''}
+          color="bg-indigo-50 text-indigo-600"
+        />
+        <StatCard
+          icon={Trophy}
+          label="Most Expensive Shipment"
+          value={stats?.mostExpensive?.ref ?? '—'}
+          sub={stats?.mostExpensive ? `${fmt(stats.mostExpensive.totalFreight)} · ${stats.mostExpensive.route} · ${stats.mostExpensive.mode}` : ''}
+          color="bg-rose-50 text-rose-600"
+        />
+      </div>
+
+      {/* Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        {/* Status pie */}
+        <ChartCard title="Shipments by Status" icon={Package} empty={!hasAny}>
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={statusData}
+                dataKey="count"
+                nameKey="status"
+                cx="50%"
+                cy="50%"
+                innerRadius={50}
+                outerRadius={85}
+                paddingAngle={2}
+                label={({ status, count }) => `${status}: ${count}`}
+                labelLine={false}
+              >
+                {statusData.map((d) => (
+                  <Cell key={d.status} fill={STATUS_COLORS[d.status] || '#9ca3af'} />
+                ))}
+              </Pie>
+              <Tooltip formatter={(v) => [`${v} shipments`, '']} />
+            </PieChart>
+          </ResponsiveContainer>
+        </ChartCard>
+
+        {/* Freight by mode pie */}
+        <ChartCard title="Freight Cost by Service Mode" icon={DollarSign} empty={!hasAny}>
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={modeData}
+                dataKey="value"
+                nameKey="mode"
+                cx="50%"
+                cy="50%"
+                outerRadius={85}
+                paddingAngle={2}
+                label={({ mode }) => mode}
+                labelLine={false}
+              >
+                {modeData.map((d, i) => (
+                  <Cell key={d.mode} fill={MODE_COLORS[i % MODE_COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip formatter={(v) => [fmt(v), 'Freight']} />
+              <Legend />
+            </PieChart>
+          </ResponsiveContainer>
+        </ChartCard>
+
+        {/* Freight trend line */}
+        <ChartCard title="Freight Cost Over Time" icon={TrendingUp} empty={!hasAny}>
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={trendData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={(d) => d.slice(5)} />
+              <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${v / 1000}k`} />
+              <Tooltip formatter={(v) => [fmt(v), 'Freight']} labelFormatter={(l) => `Date: ${l}`} />
+              <Line type="monotone" dataKey="freight" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </ChartCard>
+
+        {/* Top routes bar */}
+        <ChartCard title="Top Routes by Volume" icon={BarChart3} empty={!hasAny}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={routeData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <XAxis dataKey="route" tick={{ fontSize: 11 }} />
+              <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+              <Tooltip formatter={(v, n) => [n === 'count' ? `${v} shipments` : fmt(v), n === 'count' ? 'Shipments' : 'Freight']} />
+              <Bar dataKey="count" fill="#6366f1" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
       </div>
 
       {/* Recent shipments */}
@@ -138,43 +275,6 @@ export default function Dashboard() {
             ))}
           </div>
         )}
-      </div>
-
-      {/* Quick actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-        <Link to="/shipments/new" className="card p-5 hover:shadow-md transition-shadow group">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center group-hover:bg-blue-100 transition-colors">
-              <PlusCircle className="w-5 h-5 text-blue-600" />
-            </div>
-            <div>
-              <div className="font-medium text-gray-900 text-sm">Calculate Freight</div>
-              <div className="text-xs text-gray-500">Create a new shipment quote</div>
-            </div>
-          </div>
-        </Link>
-        <Link to="/shipments?status=PENDING" className="card p-5 hover:shadow-md transition-shadow group">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-yellow-50 rounded-lg flex items-center justify-center group-hover:bg-yellow-100 transition-colors">
-              <Clock className="w-5 h-5 text-yellow-600" />
-            </div>
-            <div>
-              <div className="font-medium text-gray-900 text-sm">Review Pending</div>
-              <div className="text-xs text-gray-500">Approve or reject shipments</div>
-            </div>
-          </div>
-        </Link>
-        <Link to="/reference" className="card p-5 hover:shadow-md transition-shadow group">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-green-50 rounded-lg flex items-center justify-center group-hover:bg-green-100 transition-colors">
-              <TrendingUp className="w-5 h-5 text-green-600" />
-            </div>
-            <div>
-              <div className="font-medium text-gray-900 text-sm">Reference Data</div>
-              <div className="text-xs text-gray-500">Zones, countries, rates</div>
-            </div>
-          </div>
-        </Link>
       </div>
     </div>
   )

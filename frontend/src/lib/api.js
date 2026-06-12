@@ -25,6 +25,9 @@ async function request(method, path, body) {
 }
 
 export const api = {
+  // Health — used to pre-warm a cold backend (Render free tier spins down).
+  health: () => request('GET', '/health'),
+
   // Auth
   login: (email, password) => request('POST', '/auth/login', { email, password }),
 
