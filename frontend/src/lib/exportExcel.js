@@ -1,4 +1,6 @@
-import * as XLSX from 'xlsx'
+// NOTE: `xlsx` is large (~900 KB). It is imported dynamically inside
+// exportShipmentsToExcel() so it only downloads when the user actually
+// clicks "Download Excel" — keeping it out of the initial page bundle.
 
 // Parse the stored quote snapshot (resultJson) safely.
 function parseResult(s) {
@@ -48,7 +50,10 @@ function toRow(s) {
  * Build and trigger a download of an .xlsx file containing all shipments.
  * @param {Array} shipments  list of shipment records (with resultJson + relations)
  */
-export function exportShipmentsToExcel(shipments) {
+export async function exportShipmentsToExcel(shipments) {
+  // Dynamic import: xlsx is only fetched when an export is actually requested.
+  const XLSX = await import('xlsx')
+
   const rows = (shipments || []).map(toRow)
   const ws = XLSX.utils.json_to_sheet(rows)
 

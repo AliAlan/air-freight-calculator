@@ -55,8 +55,17 @@ export default function Shipments() {
     }
   }
 
-  function handleExport() {
-    exportShipmentsToExcel(filtered)
+  const [exporting, setExporting] = useState(false)
+  async function handleExport() {
+    setError('')
+    setExporting(true)
+    try {
+      await exportShipmentsToExcel(filtered)
+    } catch (err) {
+      setError(err.message || 'Failed to export.')
+    } finally {
+      setExporting(false)
+    }
   }
 
   const filtered = shipments.filter(s => {
@@ -85,12 +94,12 @@ export default function Shipments() {
         <div className="flex items-center gap-3">
           <button
             onClick={handleExport}
-            disabled={filtered.length === 0}
+            disabled={filtered.length === 0 || exporting}
             className="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
             title="Download all listed shipments as an Excel file"
           >
             <Download className="w-4 h-4" />
-            Download Excel
+            {exporting ? 'Preparing…' : 'Download Excel'}
           </button>
           <Link to="/shipments/new" className="btn-primary">
             <PlusCircle className="w-4 h-4" />
