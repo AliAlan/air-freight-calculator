@@ -71,23 +71,35 @@ const MODES = [
 ];
 
 // ---------------------------------------------------------------------------
-// 4. RATE GRID (SAR) — per zone rate bands
+// 4. RATE GRID — DHL Import Express Worldwide Rates (SAR), Zone 1–7
+//
+//    GROUND TRUTH: "DHL Rates Modeling .docx" + "Express Calculator logic.xlsx".
+//    Validated: 250 kg Zone 5 = 7,984.40 SAR (matches the approved Excel).
+//
+//    Pricing model (Blueprint V2):
+//      • firstHalf = flat charge for the first 0.5 kg.
+//      • perHalfKg = rate per EACH additional 0.5 kg, within each marginal band
+//        (progressive — like tax brackets). `upTo` = band cumulative upper
+//        bound (kg); null = open "200 kg +".
+//      • "Incremental rates are accounted for every additional 0.5 kg."
+//    Valid till 31 Oct 2026; adjusted yearly.
 // ---------------------------------------------------------------------------
 const RATE_GRID = {
-  Z1: { firstHalf: 182.51, bands: [{ from: 1, to: 5.5, rate: 16.71 }, { from: 5.5, to: 20, rate: 15.42 }, { from: 20, to: 50, rate: 14.13 }, { from: 50, to: 200, rate: 11.58 }, { from: 200, to: null, rate: 10.29 }] },
-  Z2: { firstHalf: 195.00, bands: [{ from: 1, to: 5.5, rate: 18.40 }, { from: 5.5, to: 20, rate: 17.00 }, { from: 20, to: 50, rate: 15.60 }, { from: 50, to: 200, rate: 12.80 }, { from: 200, to: null, rate: 11.40 }] },
-  Z3: { firstHalf: 210.00, bands: [{ from: 1, to: 5.5, rate: 20.10 }, { from: 5.5, to: 20, rate: 18.60 }, { from: 20, to: 50, rate: 17.10 }, { from: 50, to: 200, rate: 14.00 }, { from: 200, to: null, rate: 12.50 }] },
-  Z4: { firstHalf: 228.00, bands: [{ from: 1, to: 5.5, rate: 22.30 }, { from: 5.5, to: 20, rate: 20.60 }, { from: 20, to: 50, rate: 18.90 }, { from: 50, to: 200, rate: 15.50 }, { from: 200, to: null, rate: 13.80 }] },
-  Z5: { firstHalf: 245.00, bands: [{ from: 1, to: 5.5, rate: 24.80 }, { from: 5.5, to: 20, rate: 22.90 }, { from: 20, to: 50, rate: 21.00 }, { from: 50, to: 200, rate: 17.20 }, { from: 200, to: null, rate: 15.30 }] },
-  Z6: { firstHalf: 268.00, bands: [{ from: 1, to: 5.5, rate: 27.50 }, { from: 5.5, to: 20, rate: 25.40 }, { from: 20, to: 50, rate: 23.30 }, { from: 50, to: 200, rate: 19.10 }, { from: 200, to: null, rate: 17.00 }] },
-  Z7: { firstHalf: 290.00, bands: [{ from: 1, to: 5.5, rate: 30.40 }, { from: 5.5, to: 20, rate: 28.10 }, { from: 20, to: 50, rate: 25.80 }, { from: 50, to: 200, rate: 21.10 }, { from: 200, to: null, rate: 18.80 }] },
+  Z1: { firstHalf: 182.51, perHalfKg: [{ upTo: 5, rate: 16.71 }, { upTo: 20, rate: 15.42 }, { upTo: 50, rate: 14.13 }, { upTo: 200, rate: 11.58 }, { upTo: null, rate: 10.29 }] },
+  Z2: { firstHalf: 214.65, perHalfKg: [{ upTo: 5, rate: 21.21 }, { upTo: 20, rate: 17.22 }, { upTo: 50, rate: 15.89 }, { upTo: 200, rate: 14.56 }, { upTo: null, rate: 11.93 }] },
+  Z3: { firstHalf: 218.62, perHalfKg: [{ upTo: 5, rate: 21.21 }, { upTo: 20, rate: 19.86 }, { upTo: 50, rate: 17.23 }, { upTo: 200, rate: 15.89 }, { upTo: null, rate: 14.56 }] },
+  Z4: { firstHalf: 181.39, perHalfKg: [{ upTo: 5, rate: 16.73 }, { upTo: 20, rate: 16.73 }, { upTo: 50, rate: 14.15 }, { upTo: 200, rate: 14.15 }, { upTo: null, rate: 14.15 }] },
+  Z5: { firstHalf: 176.06, perHalfKg: [{ upTo: 5, rate: 20.56 }, { upTo: 20, rate: 19.27 }, { upTo: 50, rate: 16.72 }, { upTo: 200, rate: 15.43 }, { upTo: null, rate: 14.13 }] },
+  Z6: { firstHalf: 268.99, perHalfKg: [{ upTo: 5, rate: 34.46 }, { upTo: 20, rate: 30.48 }, { upTo: 50, rate: 27.83 }, { upTo: 200, rate: 25.18 }, { upTo: null, rate: 23.85 }] },
+  Z7: { firstHalf: 296.90, perHalfKg: [{ upTo: 5, rate: 52.69 }, { upTo: 20, rate: 48.83 }, { upTo: 50, rate: 45.00 }, { upTo: 200, rate: 42.40 }, { upTo: null, rate: 39.83 }] },
 };
 
-// Flat bracket list for DB seeding (reference only — engine uses RATE_GRID)
+// Flat bracket list for DB seeding / Reference screen. `perKg` here is the
+// per-0.5kg incremental rate (the unit the published card uses).
 const RATE_BRACKETS = [
-  { minKg: 0,   maxKg: 1,     perKg: 0,     minCharge: 182.51 },
-  { minKg: 1,   maxKg: 5.5,   perKg: 16.71, minCharge: 0 },
-  { minKg: 5.5, maxKg: 20,    perKg: 15.42, minCharge: 0 },
+  { minKg: 0,   maxKg: 0.5,   perKg: 0,     minCharge: 182.51 },
+  { minKg: 0.5, maxKg: 5,     perKg: 16.71, minCharge: 0 },
+  { minKg: 5,   maxKg: 20,    perKg: 15.42, minCharge: 0 },
   { minKg: 20,  maxKg: 50,    perKg: 14.13, minCharge: 0 },
   { minKg: 50,  maxKg: 200,   perKg: 11.58, minCharge: 0 },
   { minKg: 200, maxKg: 99999, perKg: 10.29, minCharge: 0 },

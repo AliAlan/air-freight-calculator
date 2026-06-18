@@ -12,7 +12,7 @@
 const bcrypt = require('bcryptjs');
 const prisma = require('../src/config/db');
 const {
-  ZONES, COUNTRIES, RATE_BRACKETS, SURCHARGES,
+  ZONES, COUNTRIES, RATE_BRACKETS, RATE_GRID, SURCHARGES,
 } = require('../src/engine/data');
 const scenarios = require('../src/engine/scenarios');
 const { calculateQuote } = require('../src/engine/calculator');
@@ -60,10 +60,17 @@ async function main() {
       data: { code: c.code, name: c.name, remote: c.remote, zoneId: zoneByCode[c.zone].id },
     });
   }
-  // Rates (one set of brackets per zone, factor applied at calc time)
+  // Rates — REAL per-zone DHL Import Express card from RATE_GRID (SAR).
+  // perKg column stores the per-0.5kg incremental rate; the 0–0.5kg row
+  // carries the flat first-half-kg minimum. (Blueprint V2.)
   for (const z of ZONES) {
-    for (const b of RATE_BRACKETS) {
-      await prisma.rate.create({ data: { zoneId: zoneByCode[z.code].id, minKg: b.minKg, maxKg: b.maxKg, perKg: b.perKg, minCharge: b.minCharge } });
+    const grid = RATE_GRID[z.code];
+    await prisma.rate.create({ data: { zoneId: zoneByCode[z.code].id, minKg: 0, maxKg: 0.5, perKg: 0, minCharge: grid.firstHalf } });
+    let prev = 0.5;
+    for (const band of grid.perHalfKg) {
+      const upper = band.upTo === null ? 99999 : band.upTo;
+      await prisma.rate.create({ data: { zoneId: zoneByCode[z.code].id, minKg: prev, maxKg: upper, perKg: band.rate, minCharge: 0 } });
+      prev = upper;
     }
   }
   // Surcharges

@@ -131,33 +131,75 @@ function resolveZone(originCode) {
 // ---------------------------------------------------------------------------
 // 4. Base freight
 // ---------------------------------------------------------------------------
-function bandForWeight(zoneCode, w) {
-  const grid = RATE_GRID[zoneCode];
-  return grid.bands.find((b) => w >= b.from && (b.to === null || w < b.to))
-    || grid.bands[grid.bands.length - 1];
+// Round a weight UP to the next 0.5 kg (DHL bills in 0.5 kg increments).
+function roundUpHalfKg(w) {
+  return Math.ceil((w - 1e-9) / 0.5) * 0.5;
 }
 
+// Which marginal band a given (already >0.5kg) weight's TOP slice falls in.
+// Kept for reporting/tests; the engine itself walks all bands progressively.
+function bandForWeight(zoneCode, w) {
+  const grid = RATE_GRID[zoneCode];
+  let prev = 0.5;
+  for (const b of grid.perHalfKg) {
+    const upper = b.upTo === null ? Infinity : b.upTo;
+    if (w <= upper) return { from: prev, to: b.upTo, rate: b.rate };
+    prev = upper;
+  }
+  const last = grid.perHalfKg[grid.perHalfKg.length - 1];
+  return { from: prev, to: null, rate: last.rate };
+}
+
+/**
+ * Base freight — DHL Import Express, PROGRESSIVE per-0.5kg banding.
+ *
+ *   freight = firstHalf(flat)  +  Σ over bands ( kg_in_band / 0.5 × band.rate )
+ *
+ * Weight is first rounded UP to the next 0.5 kg, then sliced across the
+ * marginal bands (0.5→5, 5→20, 20→50, 50→200, 200→∞) and each slice charged
+ * at that band's per-0.5kg rate. Validated: 250 kg Z5 = 7,984.40 SAR.
+ */
 function computeFreight({ chargeableWeight, zoneCode }) {
   const grid = RATE_GRID[zoneCode];
-  if (chargeableWeight < 1) {
-    return {
-      bracket: 'first 0.5 kg',
-      effectiveRate: grid.firstHalf,
-      minCharge: grid.firstHalf,
-      appliedMinimum: true,
-      freightSubtotal: round(grid.firstHalf),
-      basis: `flat first-0.5kg minimum (${zoneCode})`,
-    };
+  const W = roundUpHalfKg(chargeableWeight);
+
+  // First 0.5 kg is a flat minimum.
+  const bands = [{ label: '1st 0.5 kg', kg: 0.5, rate: grid.firstHalf, amount: round(grid.firstHalf) }];
+  let total = grid.firstHalf;
+
+  if (W > 0.5) {
+    let prev = 0.5;
+    for (const b of grid.perHalfKg) {
+      const upper = b.upTo === null ? Infinity : b.upTo;
+      if (W > prev) {
+        const span        = Math.min(W, upper) - prev;   // kg in this marginal band
+        const increments  = Math.round(span / 0.5);       // number of 0.5kg steps
+        const amount      = round(increments * b.rate);
+        bands.push({
+          label: `${prev}–${upper === Infinity ? '+' : upper} kg`,
+          kg: round(span),
+          increments,
+          rate: b.rate,
+          amount,
+        });
+        total += amount;
+        prev = upper;
+      }
+      if (W <= upper) break;
+    }
   }
-  const band    = bandForWeight(zoneCode, chargeableWeight);
-  const subtotal = round(chargeableWeight * band.rate);
+
+  const top = bands[bands.length - 1];
   return {
-    bracket:       `${band.from}-${band.to || '∞'} kg`,
-    effectiveRate:  band.rate,
-    minCharge:      0,
-    appliedMinimum: false,
-    freightSubtotal: subtotal,
-    basis: `${round(chargeableWeight)} kg × ${band.rate} (${zoneCode})`,
+    bracket:        top.label,
+    effectiveRate:  top.rate,
+    chargeableRounded: W,
+    appliedMinimum: W <= 0.5,
+    bands,                                  // per-band breakdown (for UI + audit)
+    freightSubtotal: round(total),
+    basis: W <= 0.5
+      ? `flat first-0.5kg minimum (${zoneCode})`
+      : `progressive per-0.5kg across ${bands.length} band(s) (${zoneCode})`,
   };
 }
 
@@ -363,10 +405,16 @@ function computeSurcharges(ctx) {
     }
   });
 
-  // ── FUEL last: % of (base freight + all freight surcharges above) ─────────
+  // ── FUEL last ────────────────────────────────────────────────────────────
+  // Blueprint V2 / DHL Rates doc: Fuel = % of (freight + OVERSIZE + OVERWEIGHT
+  // + DEMAND) ONLY — NOT of customs/optional surcharges.
+  const FUEL_BASE_CODES = ['OVERSIZE', 'OVERWEIGHT', 'DEMAND'];
   const fuel = active.find((s) => s.condition === 'FUEL');
   if (fuel) {
-    const fuelBase = ctx.freightSubtotal + lines.reduce((sum, l) => sum + l.amount, 0);
+    const surchargesInBase = lines
+      .filter((l) => FUEL_BASE_CODES.includes(l.code))
+      .reduce((sum, l) => sum + l.amount, 0);
+    const fuelBase = ctx.freightSubtotal + surchargesInBase;
     lines.push({
       code:   fuel.code,
       name:   fuel.name,

@@ -50,15 +50,28 @@ describe('Zone resolution (from ORIGIN)', () => {
   });
 });
 
-describe('Freight (rate grid)', () => {
-  test('24 kg in Zone 3 uses the 20-50 band (17.10/kg)', () => {
-    const f = computeFreight({ chargeableWeight: 24, zoneCode: 'Z3' });
-    expect(f.effectiveRate).toBe(17.1);
-    expect(f.freightSubtotal).toBe(410.4);        // 24 * 17.10
+describe('Freight (progressive per-0.5kg banding — Blueprint V2)', () => {
+  test('GOLDEN MASTER: 250 kg Zone 5 Express = 7,984.40 SAR (matches approved Excel)', () => {
+    const f = computeFreight({ chargeableWeight: 250, zoneCode: 'Z5' });
+    expect(f.freightSubtotal).toBe(7984.4);
   });
-  test('sub-1kg uses the flat first-0.5kg minimum', () => {
+  test('18 kg Zone 1 = 733.82 (flat 182.51 + 9×16.71 + 26×15.42)', () => {
+    const f = computeFreight({ chargeableWeight: 18, zoneCode: 'Z1' });
+    expect(f.freightSubtotal).toBe(733.82);
+  });
+  test('24 kg Zone 3 = 1,143.15 (progressive across 4 bands)', () => {
+    const f = computeFreight({ chargeableWeight: 24, zoneCode: 'Z3' });
+    expect(f.freightSubtotal).toBe(1143.15);
+    expect(f.effectiveRate).toBe(17.23);          // top slice in the 20–50 band
+  });
+  test('sub-0.5kg uses the flat first-0.5kg minimum', () => {
     const f = computeFreight({ chargeableWeight: 0.4, zoneCode: 'Z1' });
     expect(f.freightSubtotal).toBe(182.51);
+  });
+  test('chargeable weight rounds UP to next 0.5 kg (17.3 → 17.5)', () => {
+    const f = computeFreight({ chargeableWeight: 17.3, zoneCode: 'Z5' });
+    expect(f.chargeableRounded).toBe(17.5);
+    expect(f.freightSubtotal).toBe(842.85);
   });
 });
 
@@ -68,7 +81,8 @@ describe('Surcharges', () => {
     const codes = s.lines.map((l) => l.code);
     expect(codes).toEqual(['SECURITY', 'FUEL']);
     expect(s.lines.find((l) => l.code === 'SECURITY').amount).toBe(7.2);   // 0.30 * 24
-    expect(s.lines.find((l) => l.code === 'FUEL').amount).toBe(114.84);    // 27.5% of (410.40 + 7.20)
+    // Fuel base is freight ONLY here (SECURITY is not in the fuel base): 27.5% × 410.40
+    expect(s.lines.find((l) => l.code === 'FUEL').amount).toBe(112.86);
   });
   test('dangerous goods adds DG flat surcharge and forces approval', () => {
     const s = computeSurcharges({ pieces: [], chargeableWeight: 22, freightSubtotal: 462, dangerousGoods: true, isRemote: false, isRisk: false });
@@ -101,11 +115,12 @@ describe('Exclusions (NOT freight)', () => {
 });
 
 describe('Full quotes (the 5 seeded scenarios)', () => {
+  // Updated to Blueprint V2 progressive rate card (all freight figures rose).
   const expected = {
-    'AF-1001': { freight: 532.44, landed: 1452.31, status: 'DRAFT' },
-    'AF-1002': { freight: 1158.47, landed: 2692.24, status: 'PENDING' },
-    'AF-1004': { freight: 658.92, landed: 1277.76, status: 'DRAFT' },
-    'AF-1005': { freight: 1311.55, landed: 2588.28, status: 'PENDING' },
+    'AF-1001': { freight: 1464.72, landed: 2524.43, status: 'PENDING' },
+    'AF-1002': { freight: 1729.35, landed: 3348.75, status: 'PENDING' },
+    'AF-1004': { freight: 1703.75, landed: 2479.31, status: 'PENDING' },
+    'AF-1005': { freight: 2848.31, landed: 4355.56, status: 'PENDING' },
   };
   Object.entries(expected).forEach(([ref, ex]) => {
     test(`${ref} totals & status`, () => {

@@ -100,14 +100,15 @@ function Rates({ data }) {
           <div className="px-6 py-3 bg-gray-50 border-b border-gray-200 flex items-center gap-2">
             <span className="font-bold text-blue-600">{code}</span>
             <span className="text-gray-600 text-sm">{zone?.name}</span>
+            <span className="ml-auto text-xs text-gray-400">DHL Import Express · progressive per 0.5 kg</span>
           </div>
           <table className="w-full text-sm">
             <thead>
               <tr className="text-xs text-gray-400 uppercase tracking-wide">
-                <th className="text-left px-6 py-2">Min Kg</th>
-                <th className="text-left px-6 py-2">Max Kg</th>
-                <th className="text-right px-6 py-2">Per Kg (SAR)</th>
-                <th className="text-right px-6 py-2">Min Charge (SAR)</th>
+                <th className="text-left px-6 py-2">From Kg</th>
+                <th className="text-left px-6 py-2">To Kg</th>
+                <th className="text-right px-6 py-2">Rate / 0.5 Kg (SAR)</th>
+                <th className="text-right px-6 py-2">First 0.5 Kg Flat (SAR)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
