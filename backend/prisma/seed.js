@@ -15,6 +15,7 @@ const {
   ZONES, COUNTRIES, RATE_BRACKETS, RATE_GRID, SURCHARGES,
 } = require('../src/engine/data');
 const scenarios = require('../src/engine/scenarios');
+const trackingRows = require('../src/data/tracking.json');
 const { calculateQuote } = require('../src/engine/calculator');
 const { makeRef } = require('../src/utils/ref');
 
@@ -28,6 +29,7 @@ async function clear() {
   await prisma.zone.deleteMany();
   await prisma.surcharge.deleteMany();
   await prisma.auditLog.deleteMany();
+  await prisma.trackedShipment.deleteMany();
   await prisma.user.deleteMany();
   await prisma.role.deleteMany();
 }
@@ -76,6 +78,11 @@ async function main() {
   // Surcharges
   for (const s of SURCHARGES) {
     await prisma.surcharge.create({ data: { code: s.code, name: s.name, type: s.type, value: s.value, condition: s.condition, active: s.active !== false } });
+  }
+  // Operational tracking rows (from the DHL tracking sheet). Bulk insert.
+  if (trackingRows.length) {
+    await prisma.trackedShipment.createMany({ data: trackingRows });
+    console.log(`Tracking rows seeded: ${trackingRows.length}`);
   }
 
   // Demo shipments from scenarios

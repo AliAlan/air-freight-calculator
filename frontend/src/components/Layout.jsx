@@ -2,13 +2,14 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import {
   LayoutDashboard, Package, PlusCircle, Globe, BarChart3,
-  LogOut, Plane, ChevronRight, Shield
+  LogOut, Plane, ChevronRight, Shield, Truck
 } from 'lucide-react'
 
 const nav = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/shipments', icon: Package, label: 'Shipments' },
   { to: '/shipments/new', icon: PlusCircle, label: 'New Shipment' },
+  { to: '/tracking', icon: Truck, label: 'Tracking' },
   { to: '/reference', icon: Globe, label: 'Reference Data' },
   { to: '/rates', icon: BarChart3, label: 'Rate Cards' },
 ]

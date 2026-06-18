@@ -26,6 +26,7 @@ function lazyRetry(factory) {
 // Lazy: each page (and its heavy deps like recharts/xlsx) loads only when visited.
 const Dashboard = lazyRetry(() => import('./pages/Dashboard'))
 const Shipments = lazyRetry(() => import('./pages/Shipments'))
+const Tracking = lazyRetry(() => import('./pages/Tracking'))
 const NewShipment = lazyRetry(() => import('./pages/NewShipment'))
 const ShipmentDetail = lazyRetry(() => import('./pages/ShipmentDetail'))
 const Reference = lazyRetry(() => import('./pages/Reference'))
@@ -60,6 +61,7 @@ function AppRoutes() {
       <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <Login />} />
       <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
       <Route path="/shipments" element={<PrivateRoute><Shipments /></PrivateRoute>} />
+      <Route path="/tracking" element={<PrivateRoute><Tracking /></PrivateRoute>} />
       <Route path="/shipments/new" element={<PrivateRoute><NewShipment /></PrivateRoute>} />
       <Route path="/shipments/:id" element={<PrivateRoute><ShipmentDetail /></PrivateRoute>} />
       <Route path="/reference" element={<PrivateRoute><Reference /></PrivateRoute>} />
