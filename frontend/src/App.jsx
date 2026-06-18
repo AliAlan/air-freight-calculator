@@ -1,17 +1,34 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import Layout from './components/Layout'
+import ErrorBoundary, { clearChunkReloadFlag } from './components/ErrorBoundary'
 
 // Eager: Login is the first screen, keep it in the main bundle for instant paint.
 import Login from './pages/Login'
 
+// lazyRetry: if a dynamic import fails (almost always a stale chunk after a
+// new deploy), reload the page ONCE to fetch fresh index.html + chunk hashes.
+// The sessionStorage guard prevents an infinite reload loop.
+function lazyRetry(factory) {
+  return lazy(() =>
+    factory().catch((err) => {
+      if (!sessionStorage.getItem('afcc_chunk_reloaded')) {
+        sessionStorage.setItem('afcc_chunk_reloaded', '1')
+        window.location.reload()
+        return new Promise(() => {})   // hang until the reload takes over
+      }
+      throw err                         // already retried once → let ErrorBoundary show fallback
+    })
+  )
+}
+
 // Lazy: each page (and its heavy deps like recharts/xlsx) loads only when visited.
-const Dashboard = lazy(() => import('./pages/Dashboard'))
-const Shipments = lazy(() => import('./pages/Shipments'))
-const NewShipment = lazy(() => import('./pages/NewShipment'))
-const ShipmentDetail = lazy(() => import('./pages/ShipmentDetail'))
-const Reference = lazy(() => import('./pages/Reference'))
+const Dashboard = lazyRetry(() => import('./pages/Dashboard'))
+const Shipments = lazyRetry(() => import('./pages/Shipments'))
+const NewShipment = lazyRetry(() => import('./pages/NewShipment'))
+const ShipmentDetail = lazyRetry(() => import('./pages/ShipmentDetail'))
+const Reference = lazyRetry(() => import('./pages/Reference'))
 
 function PageLoader() {
   return (
@@ -53,11 +70,17 @@ function AppRoutes() {
 }
 
 export default function App() {
+  // App rendered successfully → clear the one-shot reload guard so a FUTURE
+  // deploy can trigger its own single recovery reload.
+  useEffect(() => { clearChunkReloadFlag() }, [])
+
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <AppRoutes />
-      </AuthProvider>
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <AuthProvider>
+          <AppRoutes />
+        </AuthProvider>
+      </BrowserRouter>
+    </ErrorBoundary>
   )
 }

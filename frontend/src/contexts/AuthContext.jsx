@@ -8,11 +8,33 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    const token = localStorage.getItem('afcc_token')
     const stored = localStorage.getItem('afcc_user')
-    if (stored) {
-      try { setUser(JSON.parse(stored)) } catch {}
+    // Only restore a session when BOTH the token and a parseable user exist.
+    // A user without a token (or corrupted JSON) is a stale/zombie state that
+    // would render protected pages whose every API call then 401s — clear it.
+    if (token && stored) {
+      try {
+        setUser(JSON.parse(stored))
+      } catch {
+        localStorage.removeItem('afcc_token')
+        localStorage.removeItem('afcc_user')
+      }
+    } else if (stored || token) {
+      localStorage.removeItem('afcc_token')
+      localStorage.removeItem('afcc_user')
     }
     setLoading(false)
+
+    // If any API call hits 401 (expired/invalid token), the api layer fires
+    // this event → drop the session so the user is routed to a clean login.
+    function onUnauthorized() {
+      localStorage.removeItem('afcc_token')
+      localStorage.removeItem('afcc_user')
+      setUser(null)
+    }
+    window.addEventListener('afcc:unauthorized', onUnauthorized)
+    return () => window.removeEventListener('afcc:unauthorized', onUnauthorized)
   }, [])
 
   async function login(email, password) {

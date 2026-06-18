@@ -19,8 +19,18 @@ async function request(method, path, body) {
     body: body ? JSON.stringify(body) : undefined,
   })
 
-  const data = await res.json()
-  if (!res.ok) throw new Error(data.message || data.error || 'Request failed')
+  // Body may not be JSON (e.g. a gateway 502/HTML while the backend wakes up).
+  let data = {}
+  try { data = await res.json() } catch { /* non-JSON response */ }
+
+  if (!res.ok) {
+    // Expired/invalid token on an authenticated call → drop the session so the
+    // app routes to a clean login instead of rendering a broken page.
+    if (res.status === 401 && token) {
+      window.dispatchEvent(new Event('afcc:unauthorized'))
+    }
+    throw new Error(data.message || data.error || `Request failed (${res.status})`)
+  }
   return data
 }
 
