@@ -411,6 +411,10 @@ function computeSurcharges(ctx) {
   const FUEL_BASE_CODES = ['OVERSIZE', 'OVERWEIGHT', 'DEMAND'];
   const fuel = active.find((s) => s.condition === 'FUEL');
   if (fuel) {
+    // Use the live DHL rate when supplied (ctx.fuelRate); else the static value.
+    const fuelRate = (ctx.fuelRate != null && !Number.isNaN(ctx.fuelRate))
+      ? ctx.fuelRate
+      : fuel.value;
     const surchargesInBase = lines
       .filter((l) => FUEL_BASE_CODES.includes(l.code))
       .reduce((sum, l) => sum + l.amount, 0);
@@ -419,8 +423,9 @@ function computeSurcharges(ctx) {
       code:   fuel.code,
       name:   fuel.name,
       type:   'PERCENT',
-      detail: `${fuel.value}% × ${round(fuelBase)}`,
-      amount: round((fuel.value / 100) * fuelBase),
+      detail: `${fuelRate}% × ${round(fuelBase)}${ctx.fuelWeek ? ` (DHL ${ctx.fuelWeek})` : ''}`,
+      amount: round((fuelRate / 100) * fuelBase),
+      rate:   fuelRate,
     });
   }
 
@@ -516,6 +521,8 @@ function calculateQuote(input) {
     nonStackable:            !!input.nonStackable,
     selectedSurcharges:      Array.isArray(input.selectedSurcharges) ? input.selectedSurcharges : [],
     declaredValue:           Number(input.declaredValue || 0),
+    fuelRate:                input.fuelRate,     // live DHL rate (undefined → static default)
+    fuelWeek:                input.fuelWeek,     // e.g. "CW 27" for the breakdown label
   });
 
   const totalFreight  = round(freight.freightSubtotal + surcharges.total);

@@ -61,6 +61,9 @@ export const api = {
   },
   getTrackingSummary: () => request('GET', '/tracking/summary'),
 
+  // Live DHL Air fuel surcharge rate
+  getFuelRate: () => request('GET', '/reference/fuel-rate'),
+
   // Reference
   getCountries: () => request('GET', '/reference/countries'),
   getZones: () => request('GET', '/reference/zones'),

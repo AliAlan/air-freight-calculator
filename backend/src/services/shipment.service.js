@@ -1,5 +1,6 @@
 // Orchestrates the calculation engine with persistence and the approval flow.
 const { calculateQuote } = require('../engine/calculator');
+const fuelService = require('./fuel.service');
 const { COUNTRIES } = require('../engine/data');
 const repo = require('../repositories/shipment.repository');
 const prisma = require('../config/db');
@@ -13,13 +14,19 @@ async function countryId(code) {
   return c.id;
 }
 
+// Attach the current live DHL fuel rate to the calc input.
+async function withFuel(input) {
+  const fuel = await fuelService.getRate();
+  return { ...input, fuelRate: fuel.rate, fuelWeek: fuel.week };
+}
+
 // Stateless preview — calculates a quote without saving anything.
-function preview(input) {
-  return calculateQuote(input);
+async function preview(input) {
+  return calculateQuote(await withFuel(input));
 }
 
 async function createShipment(input, userId) {
-  const quote = calculateQuote(input);
+  const quote = calculateQuote(await withFuel(input));
   if (quote.rejected) {
     // Persist the rejection so it shows in history/audit, then surface it.
     throw new ApiError(422, 'Shipment rejected by validation rules.', quote.errors);

@@ -2,7 +2,7 @@ const asyncHandler = require('../utils/asyncHandler');
 const svc = require('../services/shipment.service');
 
 const preview = asyncHandler(async (req, res) => {
-  res.json({ success: true, data: svc.preview(req.body) });
+  res.json({ success: true, data: await svc.preview(req.body) });
 });
 const create = asyncHandler(async (req, res) => {
   const data = await svc.createShipment(req.body, req.user.id);

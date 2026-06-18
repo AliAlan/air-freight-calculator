@@ -7,6 +7,7 @@ router.get('/countries', ctrl.countries);
 router.get('/zones', ctrl.zones);
 router.get('/rates', ctrl.rates);
 router.get('/surcharges', ctrl.surcharges);
+router.get('/fuel-rate', ctrl.fuelRate);   // live DHL Air fuel surcharge %
 // Editing the rate card / surcharges is admin-only.
 router.patch('/rates/:id', authorize('ADMIN'), ctrl.updateRate);
 router.patch('/surcharges/:id', authorize('ADMIN'), ctrl.updateSurcharge);
