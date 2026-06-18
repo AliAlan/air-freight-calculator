@@ -111,6 +111,10 @@ const COUNTRIES = [
   { code: 'TG', name: 'Togo',                       zone: 'Z7', gcc: false, remote: false, risk: false, restricted: false },
   { code: 'NE', name: 'Niger',                      zone: 'Z7', gcc: false, remote: false, risk: false, restricted: false },
   { code: 'VI', name: 'Virgin Islands (US)',        zone: 'Z7', gcc: false, remote: false, risk: false, restricted: false },
+  // Recovered from the zone guide's garbled first table row (values were
+  // displaced to the page footer): Afghanistan Air 5, Albania Air 3.
+  { code: 'AF', name: 'Afghanistan',                zone: 'Z5', gcc: false, remote: true,  risk: false, restricted: false },
+  { code: 'AL', name: 'Albania',                    zone: 'Z3', gcc: false, remote: false, risk: false, restricted: false },
 ];
 
 // ---------------------------------------------------------------------------
