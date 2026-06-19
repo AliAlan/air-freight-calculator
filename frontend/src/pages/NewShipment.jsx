@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
+import CurrencyConverter from '../components/CurrencyConverter'
 import { Plus, Trash2, Calculator, Save, AlertCircle, CheckCircle, Info, ChevronDown, ChevronUp } from 'lucide-react'
 
 const MODES = ['Express', 'DangerousGoods', 'Eco']
@@ -545,8 +546,9 @@ export default function NewShipment() {
           </button>
         </div>
 
-        {/* Right: result */}
+        {/* Right: converter + result */}
         <div className="lg:col-span-1">
+          <CurrencyConverter onUseSar={(v) => setField('declaredValue', v)} />
           {preview ? (
             <ResultPanel result={preview} onSave={save} saving={saving} />
           ) : (
