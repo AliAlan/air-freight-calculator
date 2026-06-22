@@ -8,6 +8,10 @@ const create = asyncHandler(async (req, res) => {
   const data = await svc.createShipment(req.body, req.user.id);
   res.status(201).json({ success: true, data });
 });
+const update = asyncHandler(async (req, res) => {
+  const data = await svc.updateShipment(Number(req.params.id), req.body, req.user.id);
+  res.json({ success: true, data });
+});
 const list = asyncHandler(async (req, res) => {
   res.json({ success: true, data: await svc.list(req.query.status) });
 });
@@ -26,4 +30,4 @@ const remove = asyncHandler(async (req, res) => {
 const dashboard = asyncHandler(async (req, res) => {
   res.json({ success: true, data: await svc.dashboard() });
 });
-module.exports = { preview, create, list, getOne, remove, decide, dashboard };
+module.exports = { preview, create, update, list, getOne, remove, decide, dashboard };

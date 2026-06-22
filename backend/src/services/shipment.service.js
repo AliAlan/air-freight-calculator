@@ -48,11 +48,52 @@ async function createShipment(input, userId) {
     surchargeTotal: quote.surcharges.total,
     totalFreight: quote.totalFreight,
     resultJson: JSON.stringify(quote),
+    inputJson: JSON.stringify(input),
     createdById: userId,
     items: { create: input.items },
     approvals: quote.approval.requiresApproval
       ? { create: { decision: 'PENDING', reason: quote.approval.reasons.join('; ') } }
       : undefined,
+  });
+  return { shipment, quote };
+}
+
+// Edit an existing shipment: recalculate from the corrected input and resave.
+// Items are replaced; status + approval are recomputed (an edited shipment
+// re-enters the approval flow rather than keeping a stale decision).
+async function updateShipment(id, input, userId) {
+  const existing = await repo.findById(id);
+  if (!existing) throw new ApiError(404, 'Shipment not found.');
+
+  const quote = calculateQuote(await withFuel(input));
+  if (quote.rejected) {
+    throw new ApiError(422, 'Shipment rejected by validation rules.', quote.errors);
+  }
+
+  const shipment = await repo.update(id, {
+    originCountryId: await countryId(input.originCountry),
+    destinationCountryId: await countryId(input.destinationCountry),
+    mode: input.mode,
+    dangerousGoods: input.dangerousGoods,
+    remoteArea: input.remoteArea || quote.destination.remote,
+    currency: input.currency || 'SAR',
+    status: quote.status,
+    actualWeight: quote.weights.actualWeight,
+    volumetricWeight: quote.weights.volumetricWeight,
+    chargeableWeight: quote.weights.chargeableWeight,
+    freightSubtotal: quote.freight.freightSubtotal,
+    surchargeTotal: quote.surcharges.total,
+    totalFreight: quote.totalFreight,
+    resultJson: JSON.stringify(quote),
+    inputJson: JSON.stringify(input),
+    // Replace items and reset the approval state.
+    items: { deleteMany: {}, create: input.items },
+    approvals: {
+      deleteMany: {},
+      ...(quote.approval.requiresApproval
+        ? { create: { decision: 'PENDING', reason: quote.approval.reasons.join('; ') } }
+        : {}),
+    },
   });
   return { shipment, quote };
 }
@@ -92,7 +133,9 @@ async function dashboard() {
   const routeOf = (s) =>
     `${s.originCountry?.code ?? '?'} → ${s.destinationCountry?.code ?? '?'}`;
 
-  const total = all.reduce((sum, s) => sum + (s.totalFreight || 0), 0);
+  // Total Freight KPI counts ONLY approved shipments (excludes draft/pending/rejected).
+  const approved = all.filter((s) => s.status === 'APPROVED');
+  const approvedTotal = approved.reduce((sum, s) => sum + (s.totalFreight || 0), 0);
 
   // Status counts (powers the status pie chart + KPI cards).
   const statusCounts = { DRAFT: 0, PENDING: 0, APPROVED: 0, REJECTED: 0 };
@@ -147,9 +190,9 @@ async function dashboard() {
 
   return {
     // KPIs
-    totalFreight: round2(total),
+    totalFreight: round2(approvedTotal),                 // approved-only
     shipmentCount,
-    avgFreight: shipmentCount ? round2(total / shipmentCount) : 0,
+    avgFreight: approved.length ? round2(approvedTotal / approved.length) : 0,
     pendingApprovals: statusCounts.PENDING,
     approved: statusCounts.APPROVED,
     rejected: statusCounts.REJECTED,
@@ -171,4 +214,4 @@ async function dashboard() {
   };
 }
 
-module.exports = { preview, createShipment, list, getById, deleteShipment, decideApproval, dashboard };
+module.exports = { preview, createShipment, updateShipment, list, getById, deleteShipment, decideApproval, dashboard };

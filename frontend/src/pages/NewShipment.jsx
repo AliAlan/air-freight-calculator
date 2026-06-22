@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { api } from '../lib/api'
 import CurrencyConverter from '../components/CurrencyConverter'
 import { Plus, Trash2, Calculator, Save, AlertCircle, CheckCircle, Info, ChevronDown, ChevronUp } from 'lucide-react'
@@ -89,7 +89,7 @@ function fmt(n) {
   return new Intl.NumberFormat('en-SA', { style: 'currency', currency: 'SAR', minimumFractionDigits: 2 }).format(n)
 }
 
-function ResultPanel({ result, onSave, saving }) {
+function ResultPanel({ result, onSave, saving, editing }) {
   if (!result) return null
 
   const isError = result.error || result.status === 'REJECTED'
@@ -204,7 +204,7 @@ function ResultPanel({ result, onSave, saving }) {
             className="btn-primary w-full justify-center py-2.5"
           >
             <Save className="w-4 h-4" />
-            {saving ? 'Saving…' : 'Save Shipment'}
+            {saving ? 'Saving…' : (editing ? 'Update Shipment' : 'Save Shipment')}
           </button>
         </div>
       )}
@@ -260,6 +260,8 @@ function OptionalSurchargesSection({ selected, onToggle }) {
 
 export default function NewShipment() {
   const navigate = useNavigate()
+  const { id } = useParams()
+  const isEdit = !!id
   const [countries, setCountries] = useState([])
   const [form, setForm] = useState({
     originCountry: 'DE',
@@ -289,6 +291,37 @@ export default function NewShipment() {
     })
     api.getFuelRate().then(res => setFuel(res.data)).catch(() => {})
   }, [])
+
+  // Edit mode: load the saved shipment and prefill the form from its inputJson
+  // (falls back to reconstructing from stored columns + resultJson).
+  useEffect(() => {
+    if (!isEdit) return
+    api.getShipment(id).then(res => {
+      const s = res.data
+      let input = null
+      try { input = s.inputJson ? JSON.parse(s.inputJson) : null } catch { input = null }
+      const result = (() => { try { return s.resultJson ? JSON.parse(s.resultJson) : null } catch { return null } })()
+
+      setForm({
+        originCountry: input?.originCountry ?? s.originCountry?.code ?? 'DE',
+        destinationCountry: input?.destinationCountry ?? s.destinationCountry?.code ?? 'SA',
+        mode: input?.mode ?? s.mode ?? 'Express',
+        dangerousGoods: input?.dangerousGoods ?? s.dangerousGoods ?? false,
+        dgSubtype: input?.dgSubtype ?? 'FULL_DG',
+        nonConveyableIrregular: input?.nonConveyableIrregular ?? false,
+        nonStackable: input?.nonStackable ?? false,
+        declaredValue: input?.declaredValue ?? result?.declaredValue ?? 0,
+        currency: input?.currency ?? s.currency ?? 'SAR',
+      })
+      const its = input?.items ?? s.items ?? []
+      if (its.length) setItems(its.map(it => ({
+        quantity: it.quantity ?? 1, lengthCm: it.lengthCm, widthCm: it.widthCm,
+        heightCm: it.heightCm, weightKg: it.weightKg,
+      })))
+      setSelectedSurcharges(Array.isArray(input?.selectedSurcharges) ? input.selectedSurcharges : [])
+    }).catch(err => setError(err.message))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id])
 
   function setField(field, value) {
     setForm(p => ({ ...p, [field]: value }))
@@ -346,9 +379,11 @@ export default function NewShipment() {
     setSaving(true)
     setError('')
     try {
-      const res = await api.createShipment(buildPayload())
-      const id = res.data?.id ?? res.data?.shipment?.id
-      navigate(`/shipments/${id}`)
+      const res = isEdit
+        ? await api.updateShipment(id, buildPayload())
+        : await api.createShipment(buildPayload())
+      const newId = res.data?.id ?? res.data?.shipment?.id ?? id
+      navigate(`/shipments/${newId}`)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -363,8 +398,10 @@ export default function NewShipment() {
     <div className="p-8 max-w-5xl mx-auto">
       <div className="mb-8 flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">New Shipment</h1>
-          <p className="text-gray-500 text-sm mt-1">Calculate and save a freight cost estimate</p>
+          <h1 className="text-2xl font-bold text-gray-900">{isEdit ? 'Edit Shipment' : 'New Shipment'}</h1>
+          <p className="text-gray-500 text-sm mt-1">
+            {isEdit ? 'Correct the details and re-calculate, then resave' : 'Calculate and save a freight cost estimate'}
+          </p>
         </div>
         {fuel && (
           <div
@@ -550,7 +587,7 @@ export default function NewShipment() {
         <div className="lg:col-span-1">
           <CurrencyConverter onUseSar={(v) => setField('declaredValue', v)} />
           {preview ? (
-            <ResultPanel result={preview} onSave={save} saving={saving} />
+            <ResultPanel result={preview} onSave={save} saving={saving} editing={isEdit} />
           ) : (
             <div className="card p-6 text-center text-gray-400">
               <Calculator className="w-10 h-10 mx-auto mb-3 text-gray-200" />

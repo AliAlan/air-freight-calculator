@@ -100,6 +100,7 @@ async function main() {
           destinationCountryId: countryByCode[sc.destinationCountry].id,
           createdById: users.operator.id,
           resultJson: JSON.stringify(quote),
+          inputJson: JSON.stringify(sc),
           items: { create: sc.items },
           approvals: { create: { decision: 'REJECTED', reason: quote.errors.join('; ') } },
         },
@@ -122,6 +123,7 @@ async function main() {
         surchargeTotal: quote.surcharges.total,
         totalFreight: quote.totalFreight,
         resultJson: JSON.stringify(quote),
+        inputJson: JSON.stringify(sc),
         createdById: users.operator.id,
         items: { create: sc.items },
         approvals: quote.approval.requiresApproval

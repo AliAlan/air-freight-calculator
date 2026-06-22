@@ -5,7 +5,7 @@ import { api } from '../lib/api'
 import StatusBadge from '../components/StatusBadge'
 import {
   ArrowLeft, Package, CheckCircle, XCircle, AlertCircle,
-  Info, Weight, MapPin, Layers, DollarSign
+  Info, Weight, MapPin, Layers, DollarSign, Pencil
 } from 'lucide-react'
 
 function fmt(n) {
@@ -100,6 +100,9 @@ export default function ShipmentDetail() {
             {shipment.destinationCountry?.name ?? shipment.destinationCountryId} · {shipment.mode}
           </p>
         </div>
+        <Link to={`/shipments/${shipment.id}/edit`} className="btn-secondary">
+          <Pencil className="w-4 h-4" /> Edit
+        </Link>
         <div className="text-right">
           <div className="text-2xl font-bold text-blue-700">{fmt(shipment.totalFreight)}</div>
           <div className="text-xs text-gray-400">Total Freight (SAR)</div>

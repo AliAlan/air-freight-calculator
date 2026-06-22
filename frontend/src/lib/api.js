@@ -48,6 +48,7 @@ export const api = {
   },
   getShipment: (id) => request('GET', `/shipments/${id}`),
   createShipment: (body) => request('POST', '/shipments', body),
+  updateShipment: (id, body) => request('PUT', `/shipments/${id}`, body),
   deleteShipment: (id) => request('DELETE', `/shipments/${id}`),
   previewShipment: (body) => request('POST', '/shipments/preview', body),
   decideShipment: (id, decision, reason) =>

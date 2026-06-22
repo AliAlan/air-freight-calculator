@@ -131,7 +131,7 @@ export default function Dashboard() {
           icon={DollarSign}
           label="Total Freight"
           value={fmt(stats?.totalFreight)}
-          sub={`Avg ${fmt(stats?.avgFreight)} / shipment`}
+          sub={`Approved only · avg ${fmt(stats?.avgFreight)}`}
           color="bg-purple-50 text-purple-600"
         />
         <StatCard

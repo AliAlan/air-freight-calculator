@@ -94,6 +94,7 @@ model Shipment {
   surchargeTotal     Float?
   totalFreight       Float?
   resultJson         String?              // full quote snapshot (JSON)
+  inputJson          String?              // original calc input (JSON) — powers Edit
 
   createdById        Int
   createdBy          User     @relation(fields: [createdById], references: [id])

@@ -63,6 +63,7 @@ function AppRoutes() {
       <Route path="/shipments" element={<PrivateRoute><Shipments /></PrivateRoute>} />
       <Route path="/tracking" element={<PrivateRoute><Tracking /></PrivateRoute>} />
       <Route path="/shipments/new" element={<PrivateRoute><NewShipment /></PrivateRoute>} />
+      <Route path="/shipments/:id/edit" element={<PrivateRoute><NewShipment /></PrivateRoute>} />
       <Route path="/shipments/:id" element={<PrivateRoute><ShipmentDetail /></PrivateRoute>} />
       <Route path="/reference" element={<PrivateRoute><Reference /></PrivateRoute>} />
       <Route path="/rates" element={<PrivateRoute><Reference /></PrivateRoute>} />
