@@ -4,15 +4,8 @@ import { api } from '../lib/api'
 import StatusBadge from '../components/StatusBadge'
 import {
   Package, Clock, CheckCircle, DollarSign, TrendingUp, ArrowRight,
-  PlusCircle, Route, Trophy, BarChart3, Truck, Plane,
+  PlusCircle, Route, Trophy, BarChart3,
 } from 'lucide-react'
-
-const TRACK_STATUS_STYLE = {
-  'Delivered': 'bg-green-100 text-green-700',
-  'On Transit': 'bg-blue-100 text-blue-700',
-  'Partially Delivered': 'bg-amber-100 text-amber-700',
-  'Pending': 'bg-gray-100 text-gray-600',
-}
 import {
   ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend,
   LineChart, Line, XAxis, YAxis, CartesianGrid, BarChart, Bar,
@@ -69,20 +62,14 @@ function ChartCard({ title, icon: Icon, children, empty }) {
 export default function Dashboard() {
   const [stats, setStats] = useState(null)
   const [recent, setRecent] = useState([])
-  const [tracking, setTracking] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    Promise.all([
-      api.getDashboard(),
-      api.listShipments({ limit: 5 }),
-      api.getTrackingSummary().catch(() => ({ data: null })),
-    ])
-      .then(([d, s, t]) => {
+    Promise.all([api.getDashboard(), api.listShipments({ limit: 5 })])
+      .then(([d, s]) => {
         setStats(d.data)
         const list = s.data?.shipments ?? s.data ?? []
         setRecent(list.slice(0, 5))
-        setTracking(t.data)
       })
       .finally(() => setLoading(false))
   }, [])
@@ -239,72 +226,6 @@ export default function Dashboard() {
           </ResponsiveContainer>
         </ChartCard>
       </div>
-
-      {/* Shipment tracking */}
-      {tracking && (
-        <div className="card mb-8">
-          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-            <h2 className="font-semibold text-gray-900 flex items-center gap-2">
-              <Truck className="w-4 h-4 text-blue-600" /> Shipment Tracking
-            </h2>
-            <Link to="/tracking" className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1">
-              View all <ArrowRight className="w-3 h-3" />
-            </Link>
-          </div>
-
-          {/* mini stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-gray-100 border-b border-gray-100">
-            {[
-              ['Total', tracking.total, Package, 'text-blue-600'],
-              ['Delivered', tracking.delivered, CheckCircle, 'text-green-600'],
-              ['On Transit', tracking.inTransit, Plane, 'text-indigo-600'],
-              ['Pending', tracking.pending, Clock, 'text-gray-500'],
-            ].map(([label, value, Icon, color]) => (
-              <div key={label} className="px-6 py-3 flex items-center gap-3">
-                <Icon className={`w-4 h-4 ${color}`} />
-                <div>
-                  <div className="text-lg font-bold text-gray-900 leading-none">{value}</div>
-                  <div className="text-xs text-gray-400 mt-0.5">{label}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* recent tracked shipments */}
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm whitespace-nowrap">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-200 text-xs text-gray-500 uppercase tracking-wide">
-                  <th className="text-left px-6 py-2.5 font-medium">AWB</th>
-                  <th className="text-left px-6 py-2.5 font-medium">Supplier</th>
-                  <th className="text-left px-6 py-2.5 font-medium">Route</th>
-                  <th className="text-left px-6 py-2.5 font-medium">Service</th>
-                  <th className="text-right px-6 py-2.5 font-medium">Cases</th>
-                  <th className="text-left px-6 py-2.5 font-medium">ETA</th>
-                  <th className="text-left px-6 py-2.5 font-medium">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {(tracking.recent ?? []).map((r) => (
-                  <tr key={r.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-2.5 font-mono text-blue-600">{r.awb || '—'}</td>
-                    <td className="px-6 py-2.5 text-gray-700">{r.supplier || '—'}</td>
-                    <td className="px-6 py-2.5 text-gray-700">{(r.origin || '—')} → {(r.destination || '—')}</td>
-                    <td className="px-6 py-2.5 text-gray-600">{r.serviceType || '—'}</td>
-                    <td className="px-6 py-2.5 text-right text-gray-700">{r.cases}</td>
-                    <td className="px-6 py-2.5 text-gray-500">{r.eta || '—'}</td>
-                    <td className="px-6 py-2.5">
-                      <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${TRACK_STATUS_STYLE[r.status] || 'bg-gray-100 text-gray-600'}`}>
-                        {r.status || '—'}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
 
       {/* Recent shipments */}
       <div className="card">

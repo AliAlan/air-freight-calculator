@@ -14,8 +14,7 @@ const prisma = require('../src/config/db');
 const {
   ZONES, COUNTRIES, RATE_BRACKETS, RATE_GRID, SURCHARGES,
 } = require('../src/engine/data');
-const scenarios = require('../src/engine/scenarios');
-const trackingRows = require('../src/data/tracking.json');
+const demoShipments = require('../src/engine/demoShipments');
 const { calculateQuote } = require('../src/engine/calculator');
 const { makeRef } = require('../src/utils/ref');
 
@@ -29,7 +28,6 @@ async function clear() {
   await prisma.zone.deleteMany();
   await prisma.surcharge.deleteMany();
   await prisma.auditLog.deleteMany();
-  await prisma.trackedShipment.deleteMany();
   await prisma.user.deleteMany();
   await prisma.role.deleteMany();
 }
@@ -79,56 +77,63 @@ async function main() {
   for (const s of SURCHARGES) {
     await prisma.surcharge.create({ data: { code: s.code, name: s.name, type: s.type, value: s.value, condition: s.condition, active: s.active !== false } });
   }
-  // Operational tracking rows (from the DHL tracking sheet). Bulk insert.
-  if (trackingRows.length) {
-    await prisma.trackedShipment.createMany({ data: trackingRows });
-    console.log(`Tracking rows seeded: ${trackingRows.length}`);
-  }
-
-  // Demo shipments from scenarios
+  // Demo shipments (~50, generated) — varied origins, modes, weights, dates
+  // and statuses so the dashboard + details show a full, realistic picture.
+  // Each stores inputJson, so they are all editable.
   let created = 0;
-  for (const sc of scenarios) {
-    const quote = calculateQuote(sc);
+  const DAY = 86400000;
+  for (const d of demoShipments) {
+    const quote = calculateQuote(d.input);
+    const createdAt = new Date(Date.now() - d.daysAgo * DAY);
+    const base = {
+      ref: d.ref,
+      mode: d.input.mode,
+      currency: d.input.currency || 'SAR',
+      dangerousGoods: !!d.input.dangerousGoods,
+      originCountryId: countryByCode[d.input.originCountry].id,
+      destinationCountryId: countryByCode[d.input.destinationCountry].id,
+      createdById: users.operator.id,
+      inputJson: JSON.stringify(d.input),
+      resultJson: JSON.stringify(quote),
+      items: { create: d.input.items },
+      createdAt,
+    };
+
     if (quote.rejected) {
-      // Store the rejected one too, so the demo shows a real REJECTED row.
       await prisma.shipment.create({
         data: {
-          ref: sc.ref, mode: sc.mode, currency: sc.currency,
-          dangerousGoods: sc.dangerousGoods, remoteArea: sc.remoteArea,
-          status: 'REJECTED',
-          originCountryId: countryByCode[sc.originCountry].id,
-          destinationCountryId: countryByCode[sc.destinationCountry].id,
-          createdById: users.operator.id,
-          resultJson: JSON.stringify(quote),
-          inputJson: JSON.stringify(sc),
-          items: { create: sc.items },
-          approvals: { create: { decision: 'REJECTED', reason: quote.errors.join('; ') } },
+          ...base, status: 'REJECTED',
+          approvals: { create: { decision: 'REJECTED', reason: quote.errors.join('; '), decidedById: users.approver.id } },
         },
       });
       created++;
       continue;
     }
+
+    // Approval record matches the assigned status.
+    let approvals;
+    if (d.status === 'APPROVED') {
+      approvals = { create: { decision: 'APPROVED', reason: 'Approved', decidedById: users.approver.id } };
+    } else if (d.status === 'REJECTED') {
+      approvals = { create: { decision: 'REJECTED', reason: 'Rejected by approver', decidedById: users.approver.id } };
+    } else if (d.status === 'PENDING') {
+      approvals = { create: { decision: 'PENDING', reason: (quote.approval.reasons[0] || 'Pending review') } };
+    } else {
+      approvals = undefined; // DRAFT
+    }
+
     await prisma.shipment.create({
       data: {
-        ref: sc.ref, mode: sc.mode, currency: sc.currency,
-        dangerousGoods: sc.dangerousGoods,
-        remoteArea: sc.remoteArea || quote.destination.remote,
-        status: quote.status,
-        originCountryId: countryByCode[sc.originCountry].id,
-        destinationCountryId: countryByCode[sc.destinationCountry].id,
+        ...base,
+        remoteArea: quote.destination.remote,
+        status: d.status,
         actualWeight: quote.weights.actualWeight,
         volumetricWeight: quote.weights.volumetricWeight,
         chargeableWeight: quote.weights.chargeableWeight,
         freightSubtotal: quote.freight.freightSubtotal,
         surchargeTotal: quote.surcharges.total,
         totalFreight: quote.totalFreight,
-        resultJson: JSON.stringify(quote),
-        inputJson: JSON.stringify(sc),
-        createdById: users.operator.id,
-        items: { create: sc.items },
-        approvals: quote.approval.requiresApproval
-          ? { create: { decision: 'PENDING', reason: quote.approval.reasons.join('; ') } }
-          : undefined,
+        approvals,
       },
     });
     created++;

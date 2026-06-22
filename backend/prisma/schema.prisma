@@ -136,33 +136,3 @@ model AuditLog {
   createdAt DateTime @default(now())
 }
 
-// --- Operational shipment tracking (separate from the cost calculator) -----
-// Logistics milestone tracking imported from the DHL tracking sheet.
-model TrackedShipment {
-  id               Int     @id @default(autoincrement())
-  sn               Int?
-  supplier         String?
-  mode             String?
-  serviceType      String?
-  origin           String?
-  destination      String?
-  wh               String?            // receiving warehouse (RPDC/JPDC/...)
-  pickupDate       String?
-  atd              String?            // actual time of departure
-  awb              String?            // air waybill number
-  invoiceNo        String?
-  cases            Int     @default(0)
-  chargeableWeight Float   @default(0)
-  invoiceDate      String?
-  preAlertDate     String?
-  eta              String?
-  ata              String?            // actual time of arrival
-  clearedDate      String?
-  whReceivingDate  String?
-  leadTime         String?
-  total            Int     @default(0)
-  balance          String?
-  receivedBy       String?
-  status           String  @default("Pending")  // Delivered|On Transit|Partially Delivered|Pending
-  remarks          String?
-}

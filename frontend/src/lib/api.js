@@ -55,13 +55,6 @@ export const api = {
     request('POST', `/shipments/${id}/decision`, { decision, reason }),
   getDashboard: () => request('GET', '/shipments/dashboard'),
 
-  // Tracking
-  getTracking: (params = {}) => {
-    const qs = new URLSearchParams(params).toString()
-    return request('GET', `/tracking${qs ? '?' + qs : ''}`)
-  },
-  getTrackingSummary: () => request('GET', '/tracking/summary'),
-
   // Live DHL Air fuel surcharge rate
   getFuelRate: () => request('GET', '/reference/fuel-rate'),
 
